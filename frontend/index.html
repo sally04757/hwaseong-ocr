@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>화성시 보조금 신청서 OCR</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f3;
+      --white: #ffffff;
+      --border: #e2e2de;
+      --border-hover: #c8c8c2;
+      --text: #1a1a18;
+      --text-sub: #6b6b66;
+      --text-hint: #9e9e99;
+      --accent: #1a56db;
+      --accent-light: #eff6ff;
+      --accent-border: #bfdbfe;
+      --success: #0f6e56;
+      --success-bg: #e1f5ee;
+      --warning: #854f0b;
+      --warning-bg: #faeeda;
+      --danger: #a32d2d;
+      --danger-bg: #fcebeb;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 20px 80px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .wrap { max-width: 780px; margin: 0 auto; }
+
+    /* 헤더 */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      font-size: 16px;
+    }
+
+    .logo-text { font-size: 15px; font-weight: 700; color: var(--text); }
+    .logo-sub { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+
+    .server-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--danger);
+      flex-shrink: 0;
+    }
+    .status-dot.on { background: var(--success); }
+
+    /* 카드 */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-hint);
+      margin-bottom: 14px;
+    }
+
+    /* 서버 선택 */
+    .server-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .server-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+
+    .server-btn:hover { border-color: var(--border-hover); }
+
+    .server-btn.active {
+      background: var(--accent-light);
+      border-color: var(--accent-border);
+    }
+
+    .server-btn-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .server-btn.active .server-btn-name { color: var(--accent); }
+
+    .server-btn-desc {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 5px;
+    }
+
+    .server-btn-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-hint);
+    }
+
+    .server-btn.active .server-btn-url { color: var(--accent); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .tag-blue { background: var(--accent-light); color: var(--accent); }
+    .tag-orange { background: var(--warning-bg); color: var(--warning); }
+    .tag-gray { background: var(--bg); color: var(--text-sub); border: 1px solid var(--border); }
+
+    .url-input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 9px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--text-hint); }
+
+    /* 모델 선택 */
+    .model-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .model-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+    }
+
+    .model-btn:hover { border-color: var(--border-hover); }
+
+    .model-btn.active {
+      background: var(--accent-light);
+      border-color: var(--accent-border);
+    }
+
+    .model-radio {
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      flex-shrink: 0;
+      transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .model-btn.active .model-radio {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .model-btn.active .model-radio::after {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .model-name { font-size: 13px; font-weight: 700; color: var(--text); flex: 1; }
+    .model-btn.active .model-name { color: var(--accent); }
+    .model-desc { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
+
+    /* 업로드 */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--bg);
+    }
+
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .drop-icon { font-size: 28px; margin-bottom: 8px; }
+
+    .drop-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .drop-sub { font-size: 11px; color: var(--text-hint); }
+
+    #fileInput { display: none; }
+
+    /* 샘플 버튼 */
+    .sample-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .sample-label {
+      font-size: 11px;
+      color: var(--text-hint);
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    .sample-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .sample-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* 미리보기 */
+    #preview-wrap {
+      display: none;
+      margin-top: 14px;
+    }
+
+    #preview-img {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    #preview-name {
+      font-size: 11px;
+      color: var(--text-hint);
+      margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 실행 버튼 */
+    .run-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .run-btn:hover { background: #1748c0; }
+    .run-btn:disabled { background: var(--border); color: var(--text-hint); cursor: not-allowed; }
+
+    /* 로딩 */
+    #loading { display: none; margin-top: 12px; }
+
+    .progress-bar {
+      height: 2px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      animation: prog 1.4s ease-in-out infinite;
+    }
+
+    @keyframes prog {
+      0% { width: 0%; margin-left: 0; }
+      50% { width: 55%; margin-left: 22%; }
+      100% { width: 0%; margin-left: 100%; }
+    }
+
+    .loading-text { font-size: 12px; color: var(--text-hint); text-align: center; }
+
+    /* 에러 */
+    #error-box {
+      display: none;
+      background: var(--danger-bg);
+      border: 1px solid #f7c1c1;
+      color: var(--danger);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* 결과 */
+    #result-card { display: none; }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .result-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .result-meta {
+      font-size: 11px;
+      color: var(--text-hint);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-hint);
+      margin-bottom: 8px;
+    }
+
+    #full-text-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 72px;
+      color: var(--text);
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 8px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 11px;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* 결과 테이블 */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .result-table th {
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-hint);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table tr:hover td { background: var(--bg); }
+
+    .conf-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .conf-bar {
+      width: 52px; height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .conf-fill { height: 100%; border-radius: 99px; }
+    .conf-high .conf-fill { background: var(--success); }
+    .conf-mid .conf-fill { background: #e08a00; }
+    .conf-low .conf-fill { background: var(--danger); }
+
+    .conf-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .conf-high .conf-val { color: var(--success); }
+    .conf-mid .conf-val { color: #e08a00; }
+    .conf-low .conf-val { color: var(--danger); }
+
+    .row-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-hint);
+    }
+
+    /* 구분 */
+    .gap { margin-bottom: 18px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 상단 바 -->
+  <div class="top-bar">
+    <div class="logo">
+      <div class="logo-mark">📄</div>
+      <div>
+        <div class="logo-text">화성시 보조금 신청서 OCR</div>
+        <div class="logo-sub">손글씨 자동 판독 시스템</div>
+      </div>
+    </div>
+    <div class="server-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">확인 중...</span>
+    </div>
+  </div>
+
+  <!-- 서버 선택 -->
+  <div class="card">
+    <div class="card-label">서버 선택</div>
+    <div class="server-grid">
+      <button class="server-btn active" id="btn-local" onclick="selectServer('local')">
+        <div class="server-btn-name">
+          🏠 로컬 서버
+          <span class="tag tag-gray">LOCAL</span>
+        </div>
+        <div class="server-btn-desc">내 컴퓨터 FastAPI 서버</div>
+        <div class="server-btn-url">localhost:8000</div>
+      </button>
+      <button class="server-btn" id="btn-jupyter" onclick="selectServer('jupyter')">
+        <div class="server-btn-name">
+          ⚡ JupyterHub
+          <span class="tag tag-orange">RTX 4090</span>
+        </div>
+        <div class="server-btn-desc">학교 GPU 서버 (고정밀)</div>
+        <div class="server-btn-url" id="jup-url-text">URL 미설정</div>
+      </button>
+    </div>
+    <input type="text" class="url-input" id="jupyterUrl" placeholder="http://jupyterhub-server:8000"
+      style="display:none;" oninput="updateJupyterUrl(this.value)" />
+  </div>
+
+  <!-- 모델 선택 -->
+  <div class="card">
+    <div class="card-label">OCR 모델 선택</div>
+    <div class="model-list">
+      <button class="model-btn active" onclick="selectModel(this, 'easyocr')">
+        <div class="model-radio"></div>
+        <div>
+          <div class="model-name">EasyOCR</div>
+          <div class="model-desc">한국어 + 영어 · 빠른 처리 · CPU 가능</div>
+        </div>
+        <span class="tag tag-blue">빠름</span>
+      </button>
+      <button class="model-btn" onclick="selectModel(this, 'paddleocr')">
+        <div class="model-radio"></div>
+        <div>
+          <div class="model-name">PaddleOCR v4</div>
+          <div class="model-desc">한글 인식 최상위 · GPU 권장</div>
+        </div>
+        <span class="tag tag-blue">정확</span>
+      </button>
+      <button class="model-btn" onclick="selectModel(this, 'ensemble')">
+        <div class="model-radio"></div>
+        <div>
+          <div class="model-name">앙상블 (EasyOCR + PaddleOCR)</div>
+          <div class="model-desc">두 모델 결합 · 최고 정확도 · GPU 필요</div>
+        </div>
+        <span class="tag tag-orange">GPU</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 업로드 -->
+  <div class="card">
+    <div class="card-label">이미지 업로드</div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">🖼️</div>
+      <div class="drop-title">클릭하거나 이미지를 드래그하세요</div>
+      <div class="drop-sub">JPG · PNG · BMP · TIFF &nbsp;|&nbsp; 최대 10MB</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/bmp,image/tiff" />
+
+    <div class="sample-label">테스트 샘플</div>
+    <div class="sample-row">
+      <button class="sample-chip" onclick="loadSample('sample1')">⭐ 매우 쉬움</button>
+      <button class="sample-chip" onclick="loadSample('sample2')">⭐⭐ 쉬움</button>
+      <button class="sample-chip" onclick="loadSample('sample3')">⭐⭐⭐ 보통</button>
+      <button class="sample-chip" onclick="loadSample('sample4')">⭐⭐⭐⭐ 어려움</button>
+      <button class="sample-chip" onclick="loadSample('sample5')">⭐⭐⭐⭐⭐ 매우 어려움</button>
+    </div>
+
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="미리보기" />
+      <div id="preview-name"></div>
+    </div>
+
+    <div id="error-box"></div>
+
+    <button class="run-btn" id="runBtn" disabled onclick="runOCR()">OCR 분석 시작</button>
+
+    <div id="loading">
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+      <div class="loading-text" id="loadingText">텍스트 판독 중...</div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="card" id="result-card">
+    <div class="result-top">
+      <div class="result-title">✅ 판독 결과</div>
+      <div class="result-meta" id="resultMeta"></div>
+    </div>
+
+    <div class="gap">
+      <div class="section-title">전체 텍스트</div>
+      <div id="full-text-box"></div>
+      <button class="copy-btn" onclick="copyText()">📋 복사</button>
+    </div>
+
+    <div>
+      <div class="section-title">항목별 결과</div>
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th>판독 텍스트</th>
+            <th style="width:110px">신뢰도</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SERVERS = { local: 'http://localhost:8000', jupyter: '' };
+  let curServer = 'local';
+  let curModel = 'easyocr';
+  let selFile = null;
+
+  function selectServer(type) {
+    curServer = type;
+    document.getElementById('btn-local').classList.toggle('active', type === 'local');
+    document.getElementById('btn-jupyter').classList.toggle('active', type === 'jupyter');
+    document.getElementById('jupyterUrl').style.display = type === 'jupyter' ? 'block' : 'none';
+    checkStatus();
+  }
+
+  function updateJupyterUrl(v) {
+    SERVERS.jupyter = v;
+    document.getElementById('jup-url-text').textContent = v || 'URL 미설정';
+    checkStatus();
+  }
+
+  function selectModel(el, model) {
+    curModel = model;
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  async function checkStatus() {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    const url = curServer === 'local' ? SERVERS.local : SERVERS.jupyter;
+    if (!url) { dot.className = 'status-dot'; txt.textContent = 'URL 미설정'; return; }
+    try {
+      const r = await fetch(url + '/', { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        dot.className = 'status-dot on';
+        txt.textContent = curServer === 'local' ? '로컬 연결됨' : 'JupyterHub 연결됨';
+      } else throw 0;
+    } catch {
+      dot.className = 'status-dot';
+      txt.textContent = '서버 오프라인';
+    }
+  }
+
+  const SAMPLES = {
+    sample1: { name: '샘플1_매우쉬움.jpg', path: 'samples/sample1.jpg' },
+    sample2: { name: '샘플2_쉬움.jpg', path: 'samples/sample2.jpg' },
+    sample3: { name: '샘플3_보통.jpg', path: 'samples/sample3.jpg' },
+    sample4: { name: '샘플4_어려움.jpg', path: 'samples/sample4.jpg' },
+    sample5: { name: '샘플5_매우어려움.jpg', path: 'samples/sample5.jpg' },
+  };
+
+  async function loadSample(key) {
+    showErr('');
+    const s = SAMPLES[key];
+    try {
+      const res = await fetch(s.path);
+      if (!res.ok) throw new Error('샘플 이미지를 찾을 수 없습니다. samples/ 폴더에 이미지를 넣어주세요.');
+      const blob = await res.blob();
+      selFile = new File([blob], s.name, { type: 'image/jpeg' });
+      document.getElementById('preview-img').src = s.path;
+      document.getElementById('preview-name').textContent = '📎 ' + s.name;
+      document.getElementById('preview-wrap').style.display = 'block';
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('result-card').style.display = 'none';
+    } catch(e) {
+      showErr(e.message);
+    }
+  }
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+  function setFile(file) {
+    selFile = file; showErr('');
+    const r = new FileReader();
+    r.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('preview-name').textContent = '📎 ' + file.name + '  (' + (file.size/1024).toFixed(1) + ' KB)';
+      document.getElementById('preview-wrap').style.display = 'block';
+    };
+    r.readAsDataURL(file);
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('result-card').style.display = 'none';
+  }
+
+  async function runOCR() {
+    if (!selFile) return;
+    const url = curServer === 'local' ? SERVERS.local : SERVERS.jupyter;
+    if (!url) { showErr('JupyterHub URL을 입력해주세요.'); return; }
+
+    setLoading(true); showErr('');
+    document.getElementById('result-card').style.display = 'none';
+
+    const modelLabel = { easyocr: 'EasyOCR', paddleocr: 'PaddleOCR v4', ensemble: '앙상블' };
+    document.getElementById('loadingText').textContent = modelLabel[curModel] + ' 로 판독 중...';
+
+    const fd = new FormData();
+    fd.append('file', selFile);
+    fd.append('model', curModel);
+
+    const t0 = Date.now();
+    try {
+      const res = await fetch(url + '/ocr', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || '서버 오류');
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+      renderResult(data, elapsed);
+    } catch(e) {
+      showErr('오류: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderResult(data, elapsed) {
+    document.getElementById('full-text-box').textContent = data.full_text || '(인식된 텍스트 없음)';
+    document.getElementById('resultMeta').textContent = data.total_items + '개 항목 · ' + elapsed + '초';
+
+    const tbody = document.getElementById('resultBody');
+    tbody.innerHTML = '';
+    data.details.forEach((item, i) => {
+      const c = item.confidence;
+      const cls = c >= 0.9 ? 'conf-high' : c >= 0.7 ? 'conf-mid' : 'conf-low';
+      const pct = Math.round(c * 100);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="row-num">${i+1}</td>
+        <td>${esc(item.text)}</td>
+        <td>
+          <div class="conf-wrap ${cls}">
+            <div class="conf-bar"><div class="conf-fill" style="width:${pct}%"></div></div>
+            <span class="conf-val">${pct}%</span>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function copyText() {
+    navigator.clipboard.writeText(document.getElementById('full-text-box').textContent).then(() => {
+      const b = event.currentTarget;
+      b.textContent = '✅ 복사됨';
+      setTimeout(() => b.innerHTML = '📋 복사', 1500);
+    });
+  }
+
+  function setLoading(on) {
+    document.getElementById('loading').style.display = on ? 'block' : 'none';
+    document.getElementById('runBtn').disabled = on;
+  }
+
+  function showErr(msg) {
+    const b = document.getElementById('error-box');
+    b.style.display = msg ? 'block' : 'none';
+    b.textContent = msg;
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  checkStatus();
+  setInterval(checkStatus, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+{
+  "dataset_info": {
+    "name": "화성시 보조금 교부신청서 OCR 테스트 데이터",
+    "form_type": "2023 탄소중립 마을 만들기 공모사업 보조금 교부신청서",
+    "total_samples": 5,
+    "description": "동일한 내용을 다른 글씨체로 작성하여 OCR 모델의 정확도를 글씨체별로 측정하는 테스트 데이터셋",
+    "created_date": "2026-05-07"
+  },
+  "ground_truth": {
+    "note": "모든 샘플은 동일한 내용을 의도하여 작성됨. 따라서 정답(ground_truth)은 모든 샘플에 공통 적용됨.",
+    "fields": {
+      "사업명": "탄소중립 마을 환경 개선 사업",
+      "주소": "경기도 화성시 동탄대로 123",
+      "단체명": "화성환경협의회",
+      "대표자명": "홍길동",
+      "연락처": "010-1234-5678",
+      "예금은행": "농협은행",
+      "계좌번호": "301-1284-9981-11",
+      "교부신청금액": "3000000",
+      "총사업비": "5000000",
+      "보조금": "3000000",
+      "자부담": "2000000",
+      "기타": "0",
+      "사업내용": "탄소중립 실천 캠페인 및 마을 환경 정비 활동 진행 예정",
+      "신청일자": "2023-05-06",
+      "단체명_하단": "화성환경협의회",
+      "대표자_서명": "홍길동"
+    }
+  },
+  "samples": [
+    {
+      "id": "test_001",
+      "image_path": "test_data/sample_01.jpg",
+      "difficulty": "easy",
+      "difficulty_description": "인쇄본 (기준점)"
+    },
+    {
+      "id": "test_002",
+      "image_path": "test_data/sample_02.jpg",
+      "difficulty": "easy_medium",
+      "difficulty_description": "정자체 손글씨, 또박또박"
+    },
+    {
+      "id": "test_003",
+      "image_path": "test_data/sample_03.jpg",
+      "difficulty": "medium",
+      "difficulty_description": "비교적 깔끔한 손글씨"
+    },
+    {
+      "id": "test_004",
+      "image_path": "test_data/sample_04.jpg",
+      "difficulty": "hard",
+      "difficulty_description": "흘림체, 일부 글자 식별 어려움"
+    },
+    {
+      "id": "test_005",
+      "image_path": "test_data/sample_05.jpg",
+      "difficulty": "very_hard",
+      "difficulty_description": "매우 흘림체 / 악필"
+    }
+  ]
+}
