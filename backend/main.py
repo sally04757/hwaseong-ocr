@@ -8,7 +8,7 @@ import io
 app = FastAPI(
     title="화성시 보조금 신청서 OCR API",
     description="손글씨 보조금 신청서를 자동 판독하는 API (모델 선택 지원)",
-    version="0.2.0"
+    version="0.3.0"
 )
 
 app.add_middleware(
@@ -21,6 +21,8 @@ app.add_middleware(
 # ── 모델 지연 로딩 (처음 요청 시 로드) ──────────────────────
 _easyocr_reader = None
 _paddleocr_reader = None
+_qwen_model = None
+_qwen_processor = None
 
 def get_easyocr():
     global _easyocr_reader
@@ -37,24 +39,45 @@ def get_paddleocr():
         _paddleocr_reader = PaddleOCR(use_angle_cls=True, lang="korean", )
     return _paddleocr_reader
 
+def get_qwen():
+    """Qwen2-VL-2B 모델 로드 (처음 호출 시 자동 다운로드, 약 4GB)"""
+    global _qwen_model, _qwen_processor
+    if _qwen_model is None:
+        from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+        import torch
+        
+        model_name = "Qwen/Qwen2-VL-2B-Instruct"
+        
+        # GPU 사용 가능하면 GPU, 아니면 CPU
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        torch_dtype = torch.float16 if device == "cuda" else torch.float32
+        
+        _qwen_processor = AutoProcessor.from_pretrained(model_name)
+        _qwen_model = Qwen2VLForConditionalGeneration.from_pretrained(
+            model_name,
+            torch_dtype=torch_dtype,
+            device_map=device
+        )
+    return _qwen_processor, _qwen_model
+
 
 @app.get("/")
 def root():
     return {
         "message": "화성시 보조금 신청서 OCR API",
-        "version": "0.2.0",
-        "models": ["easyocr", "paddleocr", "ensemble"]
+        "version": "0.3.0",
+        "models": ["easyocr", "paddleocr", "qwen", "ensemble"]
     }
 
 
 @app.post("/ocr")
 async def ocr_image(
     file: UploadFile = File(...),
-    model: str = Form(default="easyocr")  # easyocr / paddleocr / ensemble
+    model: str = Form(default="easyocr")  # easyocr / paddleocr / qwen / ensemble
 ):
     """
     이미지 업로드 → OCR 결과 반환
-    - model: easyocr (기본) / paddleocr / ensemble
+    - model: easyocr (기본) / paddleocr / qwen / ensemble
     - GPU 사용 시 각 모델 초기화에서 gpu=True로 변경
     """
 
@@ -72,6 +95,8 @@ async def ocr_image(
 
         if model == "paddleocr":
             results = run_paddleocr(image_np)
+        elif model == "qwen":
+            results = run_qwen(image)
         elif model == "ensemble":
             results = run_ensemble(image_np)
         else:
@@ -123,6 +148,63 @@ def run_paddleocr(image_np):
         raise HTTPException(
             status_code=400,
             detail="PaddleOCR가 설치되지 않았습니다. pip install paddleocr"
+        )
+
+
+def run_qwen(image):
+    """Qwen2-VL을 이용한 OCR (이미지에서 텍스트 추출)"""
+    try:
+        processor, model = get_qwen()
+        
+        # Qwen2-VL은 채팅 형식으로 입력받음
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": "이미지에 있는 모든 한국어 텍스트를 정확하게 추출해주세요. 줄바꿈을 유지하면서 텍스트만 출력해주세요."}
+                ]
+            }
+        ]
+        
+        # 프롬프트 생성
+        text_prompt = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = processor(
+            text=[text_prompt],
+            images=[image],
+            padding=True,
+            return_tensors="pt"
+        )
+        
+        # GPU로 이동
+        import torch
+        if torch.cuda.is_available():
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+        
+        # 추론
+        output_ids = model.generate(**inputs, max_new_tokens=1024)
+        generated_ids = [
+            output_ids[len(input_ids):]
+            for input_ids, output_ids in zip(inputs["input_ids"], output_ids)
+        ]
+        output_text = processor.batch_decode(
+            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
+        
+        # 결과를 줄 단위로 분리해서 반환
+        lines = [line.strip() for line in output_text.split("\n") if line.strip()]
+        return [
+            {
+                "text": line,
+                "confidence": 1.0,  # Qwen은 신뢰도 점수 미제공
+                "bbox": []  # Qwen은 위치 정보 미제공
+            }
+            for line in lines
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Qwen OCR 처리 오류: {str(e)}"
         )
 
 
