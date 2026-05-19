@@ -1,10 +1,28 @@
+# ====================================================================
+# 화성시 보조금 신청서 OCR - 필요 라이브러리 (v0.5.0)
+# ====================================================================
+# 설치 방법:
+#   pip install -r requirements.txt
+# ====================================================================
+
+# Web 프레임워크
 fastapi==0.110.0
 uvicorn[standard]==0.29.0
-easyocr==1.7.1
+python-multipart==0.0.9
+
+# 이미지 처리
 Pillow==10.3.0
 numpy==1.26.4
-python-multipart==0.0.9
+
+# OCR 엔진 - 전통적
+easyocr==1.7.1
+paddleocr
+paddlepaddle
+
+# AI 모델 (허깅페이스)
 transformers>=4.45.0
 torch>=2.0.0
 torchvision>=0.15.0
 accelerate>=0.20.0
+sentencepiece
+protobuf
