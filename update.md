@@ -5,6 +5,37 @@
 
 ---
 
+## [3주차] 2026-05-17
+
+### 추가된 기능
+- **OCR 모델 5종 통합**: 손글씨 특화 모델 포함하여 사용자가 선택 가능
+  - `easyocr`: 범용 OCR (한/영)
+  - `paddleocr`: 한국어 인쇄물 강함
+  - `qwen`: Qwen2-VL-2B 비전 모델 (범용)
+  - `trocr_korean`: 한국어 손글씨 특화 (team-lucid/trocr-small-korean)
+  - `donut`: 양식 문서 특화 (Naver Clova)
+  - `ensemble`: EasyOCR + PaddleOCR 앙상블
+- **API 버전 0.4.0 업데이트**: 모델 선택 옵션 6가지로 확장
+
+### 환경 구축
+- **JupyterHub 환경 셋업 완료**: PyTorch 2.3 환경에서 프로젝트 실행
+- **RTX 4090 GPU 인식 확인**: nvidia-smi로 24GB GPU 메모리 사용 가능 확인
+- **라이브러리 설치 완료**: FastAPI, EasyOCR, transformers, accelerate 등
+
+### 외부 접속 환경
+- **localhost.run 터널링 적용**: SSH 포트 포워딩으로 외부 접속 가능한 URL 생성
+- **시행착오 기록**:
+  - cloudflared quick tunnel 시도 → 500 에러로 실패
+  - cloudflared Named Tunnel 시도 → 도메인 등록 필요로 진행 불가
+  - 최종적으로 localhost.run 채택 → 교수님 승인 받음
+- **제약사항**: 6시간 자동 종료, URL 매번 변경 (발표 시 재실행 필요)
+
+### 코드 변경
+- `backend/main.py`: 모델 5종 통합 코드 작성 (182줄 추가)
+- `backend/requirements.txt`: transformers, torch, torchvision, accelerate 추가
+
+---
+
 ## [2주차] 2026-05-12
 
 ### 추가된 기능
