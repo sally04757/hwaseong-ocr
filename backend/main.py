@@ -7,8 +7,8 @@ import io
 
 app = FastAPI(
     title="화성시 보조금 신청서 OCR API",
-    description="손글씨 보조금 신청서를 자동 판독하는 API (5종 모델 선택 지원)",
-    version="0.4.0"
+    description="손글씨 보조금 신청서를 자동 판독하는 API (5종 모델 + 이미지 자동 축소)",
+    version="0.5.0"
 )
 
 app.add_middleware(
@@ -17,6 +17,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 이미지 전처리 설정 ──────────────────────────────────────
+# OCR 모델이 잘 처리할 수 있는 최대 크기 (가로/세로 중 긴 쪽 기준)
+MAX_IMAGE_DIMENSION = 1600  # 핸드폰 사진은 보통 3000~4000이라 이걸로 줄임
+
+
+def preprocess_image(image: Image.Image, max_dim: int = MAX_IMAGE_DIMENSION) -> Image.Image:
+    """
+    이미지를 OCR 모델에 적합한 크기로 자동 축소 (비율 유지)
+    - 큰 이미지: 자동 축소
+    - 작은 이미지: 그대로 유지
+    - 메모리 사용량 감소 + OCR 정확도 향상
+    """
+    width, height = image.size
+    
+    # 이미 충분히 작으면 그대로 반환
+    if max(width, height) <= max_dim:
+        return image
+    
+    # 비율 유지하면서 축소
+    if width > height:
+        new_width = max_dim
+        new_height = int(height * (max_dim / width))
+    else:
+        new_height = max_dim
+        new_width = int(width * (max_dim / height))
+    
+    resized = image.resize((new_width, new_height), Image.LANCZOS)
+    return resized
+
 
 # ── 모델 지연 로딩 (처음 요청 시 로드) ──────────────────────
 _easyocr_reader = None
@@ -97,7 +127,10 @@ def get_donut():
 def root():
     return {
         "message": "화성시 보조금 신청서 OCR API",
-        "version": "0.4.0",
+        "version": "0.5.0",
+        "features": {
+            "auto_resize": f"큰 이미지는 자동으로 {MAX_IMAGE_DIMENSION}px 이하로 축소"
+        },
         "models": ["easyocr", "paddleocr", "qwen", "trocr_korean", "donut", "ensemble"],
         "model_descriptions": {
             "easyocr": "범용 OCR (한/영)",
@@ -116,8 +149,9 @@ async def ocr_image(
     model: str = Form(default="easyocr")
 ):
     """
-    이미지 업로드 → OCR 결과 반환
+    이미지 업로드 → 자동 축소 → OCR 결과 반환
     - model: easyocr / paddleocr / qwen / trocr_korean / donut / ensemble
+    - 큰 이미지는 자동으로 1600px 이하로 축소되어 처리됨
     """
     allowed_types = ["image/jpeg", "image/png", "image/bmp", "image/tiff"]
     if file.content_type not in allowed_types:
@@ -128,7 +162,16 @@ async def ocr_image(
         raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다.")
 
     try:
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
+        # 1) 원본 이미지 로드
+        original_image = Image.open(io.BytesIO(contents)).convert("RGB")
+        original_size = original_image.size
+        
+        # 2) 자동 축소 (큰 이미지만)
+        image = preprocess_image(original_image)
+        resized_size = image.size
+        was_resized = original_size != resized_size
+        
+        # 3) numpy 배열로도 변환 (EasyOCR/PaddleOCR용)
         image_np = np.array(image)
 
         if model == "paddleocr":
@@ -152,7 +195,12 @@ async def ocr_image(
             "model_used": model,
             "full_text": full_text,
             "details": results,
-            "total_items": len(results)
+            "total_items": len(results),
+            "image_info": {
+                "original_size": list(original_size),
+                "processed_size": list(resized_size),
+                "was_resized": was_resized
+            }
         })
 
     except Exception as e:
@@ -189,12 +237,12 @@ def run_paddleocr(image_np):
     except ImportError:
         raise HTTPException(
             status_code=400,
-            detail="PaddleOCR가 설치되지 않았습니다. pip install paddleocr"
+            detail="PaddleOCR가 설치되지 않았습니다. pip install paddleocr paddlepaddle"
         )
 
 
 def run_qwen(image):
-    """Qwen2-VL을 이용한 OCR"""
+    """Qwen2-VL을 이용한 OCR (이미지 축소된 상태로 처리)"""
     try:
         processor, model = get_qwen()
         messages = [
@@ -230,7 +278,7 @@ def run_qwen(image):
 
 
 def run_trocr_korean(image):
-    """TrOCR Korean - 한국어 손글씨 특화"""
+    """TrOCR Korean - 한국어 손글씨 특화 (한 줄 단위 인식)"""
     try:
         processor, model = get_trocr_korean()
         import torch
