@@ -42,7 +42,6 @@
 
     .wrap { max-width: 780px; margin: 0 auto; }
 
-    /* 헤더 */
     .top-bar {
       display: flex;
       align-items: center;
@@ -88,7 +87,6 @@
     }
     .status-dot.on { background: var(--success); }
 
-    /* 카드 */
     .card {
       background: var(--white);
       border: 1px solid var(--border);
@@ -107,7 +105,6 @@
       margin-bottom: 14px;
     }
 
-    /* 서버 선택 */
     .server-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -168,6 +165,7 @@
     .tag-blue { background: var(--accent-light); color: var(--accent); }
     .tag-orange { background: var(--warning-bg); color: var(--warning); }
     .tag-gray { background: var(--bg); color: var(--text-sub); border: 1px solid var(--border); }
+    .tag-green { background: var(--success-bg); color: var(--success); }
 
     .url-input {
       width: 100%;
@@ -186,7 +184,6 @@
     .url-input:focus { border-color: var(--accent); }
     .url-input::placeholder { color: var(--text-hint); }
 
-    /* 모델 선택 */
     .model-list { display: flex; flex-direction: column; gap: 6px; }
 
     .model-btn {
@@ -230,11 +227,11 @@
       background: white;
     }
 
-    .model-name { font-size: 13px; font-weight: 700; color: var(--text); flex: 1; }
+    .model-info { flex: 1; }
+    .model-name { font-size: 13px; font-weight: 700; color: var(--text); }
     .model-btn.active .model-name { color: var(--accent); }
     .model-desc { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
 
-    /* 업로드 */
     .drop-zone {
       border: 1.5px dashed var(--border);
       border-radius: var(--radius);
@@ -263,7 +260,6 @@
 
     #fileInput { display: none; }
 
-    /* 샘플 버튼 */
     .sample-row {
       display: flex;
       gap: 6px;
@@ -299,7 +295,6 @@
       background: var(--accent-light);
     }
 
-    /* 미리보기 */
     #preview-wrap {
       display: none;
       margin-top: 14px;
@@ -320,7 +315,6 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* 실행 버튼 */
     .run-btn {
       width: 100%;
       margin-top: 14px;
@@ -339,7 +333,6 @@
     .run-btn:hover { background: #1748c0; }
     .run-btn:disabled { background: var(--border); color: var(--text-hint); cursor: not-allowed; }
 
-    /* 로딩 */
     #loading { display: none; margin-top: 12px; }
 
     .progress-bar {
@@ -365,7 +358,6 @@
 
     .loading-text { font-size: 12px; color: var(--text-hint); text-align: center; }
 
-    /* 에러 */
     #error-box {
       display: none;
       background: var(--danger-bg);
@@ -377,7 +369,6 @@
       margin-top: 10px;
     }
 
-    /* 결과 */
     #result-card { display: none; }
 
     .result-top {
@@ -441,7 +432,6 @@
 
     .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* 결과 테이블 */
     .result-table {
       width: 100%;
       border-collapse: collapse;
@@ -504,7 +494,6 @@
       color: var(--text-hint);
     }
 
-    /* 구분 */
     .gap { margin-bottom: 18px; }
   </style>
 </head>
@@ -547,7 +536,7 @@
         <div class="server-btn-url" id="jup-url-text">URL 미설정</div>
       </button>
     </div>
-    <input type="text" class="url-input" id="jupyterUrl" placeholder="http://jupyterhub-server:8000"
+    <input type="text" class="url-input" id="jupyterUrl" placeholder="https://xxxxx.lhr.life"
       style="display:none;" oninput="updateJupyterUrl(this.value)" />
   </div>
 
@@ -557,7 +546,7 @@
     <div class="model-list">
       <button class="model-btn active" onclick="selectModel(this, 'easyocr')">
         <div class="model-radio"></div>
-        <div>
+        <div class="model-info">
           <div class="model-name">EasyOCR</div>
           <div class="model-desc">한국어 + 영어 · 빠른 처리 · CPU 가능</div>
         </div>
@@ -565,15 +554,39 @@
       </button>
       <button class="model-btn" onclick="selectModel(this, 'paddleocr')">
         <div class="model-radio"></div>
-        <div>
+        <div class="model-info">
           <div class="model-name">PaddleOCR v4</div>
-          <div class="model-desc">한글 인식 최상위 · GPU 권장</div>
+          <div class="model-desc">한글 인쇄물 인식 최상위 · GPU 권장</div>
         </div>
         <span class="tag tag-blue">정확</span>
       </button>
+      <button class="model-btn" onclick="selectModel(this, 'trocr_korean')">
+        <div class="model-radio"></div>
+        <div class="model-info">
+          <div class="model-name">TrOCR Korean</div>
+          <div class="model-desc">한국어 손글씨 특화 · 200MB · GPU 권장</div>
+        </div>
+        <span class="tag tag-green">손글씨</span>
+      </button>
+      <button class="model-btn" onclick="selectModel(this, 'donut')">
+        <div class="model-radio"></div>
+        <div class="model-info">
+          <div class="model-name">Donut</div>
+          <div class="model-desc">양식 문서 특화 · Naver Clova · 800MB</div>
+        </div>
+        <span class="tag tag-green">양식</span>
+      </button>
+      <button class="model-btn" onclick="selectModel(this, 'qwen')">
+        <div class="model-radio"></div>
+        <div class="model-info">
+          <div class="model-name">Qwen2-VL-2B</div>
+          <div class="model-desc">범용 비전 모델 · 다국어 지원 · 4GB</div>
+        </div>
+        <span class="tag tag-orange">실험</span>
+      </button>
       <button class="model-btn" onclick="selectModel(this, 'ensemble')">
         <div class="model-radio"></div>
-        <div>
+        <div class="model-info">
           <div class="model-name">앙상블 (EasyOCR + PaddleOCR)</div>
           <div class="model-desc">두 모델 결합 · 최고 정확도 · GPU 필요</div>
         </div>
@@ -653,6 +666,16 @@
   let curModel = 'easyocr';
   let selFile = null;
 
+  // 모델 표시명
+  const MODEL_LABELS = {
+    easyocr: 'EasyOCR',
+    paddleocr: 'PaddleOCR v4',
+    trocr_korean: 'TrOCR Korean',
+    donut: 'Donut',
+    qwen: 'Qwen2-VL-2B',
+    ensemble: '앙상블'
+  };
+
   function selectServer(type) {
     curServer = type;
     document.getElementById('btn-local').classList.toggle('active', type === 'local');
@@ -691,11 +714,11 @@
   }
 
   const SAMPLES = {
-    sample1: { name: '샘플1_매우쉬움.jpg', path: 'samples/sample1.jpg' },
-    sample2: { name: '샘플2_쉬움.jpg', path: 'samples/sample2.jpg' },
-    sample3: { name: '샘플3_보통.jpg', path: 'samples/sample3.jpg' },
-    sample4: { name: '샘플4_어려움.jpg', path: 'samples/sample4.jpg' },
-    sample5: { name: '샘플5_매우어려움.jpg', path: 'samples/sample5.jpg' },
+    sample1: { name: '샘플1_매우쉬움.jpg', path: 'samples/sample_01.jpg' },
+    sample2: { name: '샘플2_쉬움.jpg', path: 'samples/sample_02.jpg' },
+    sample3: { name: '샘플3_보통.jpg', path: 'samples/sample_03.jpg' },
+    sample4: { name: '샘플4_어려움.jpg', path: 'samples/sample_04.jpg' },
+    sample5: { name: '샘플5_매우어려움.jpg', path: 'samples/sample_05.jpg' },
   };
 
   async function loadSample(key) {
@@ -749,8 +772,7 @@
     setLoading(true); showErr('');
     document.getElementById('result-card').style.display = 'none';
 
-    const modelLabel = { easyocr: 'EasyOCR', paddleocr: 'PaddleOCR v4', ensemble: '앙상블' };
-    document.getElementById('loadingText').textContent = modelLabel[curModel] + ' 로 판독 중...';
+    document.getElementById('loadingText').textContent = (MODEL_LABELS[curModel] || curModel) + ' 로 판독 중... (첫 호출 시 모델 다운로드로 시간이 걸릴 수 있습니다)';
 
     const fd = new FormData();
     fd.append('file', selFile);
@@ -772,7 +794,7 @@
 
   function renderResult(data, elapsed) {
     document.getElementById('full-text-box').textContent = data.full_text || '(인식된 텍스트 없음)';
-    document.getElementById('resultMeta').textContent = data.total_items + '개 항목 · ' + elapsed + '초';
+    document.getElementById('resultMeta').textContent = (MODEL_LABELS[data.model_used] || data.model_used) + ' · ' + data.total_items + '개 항목 · ' + elapsed + '초';
 
     const tbody = document.getElementById('resultBody');
     tbody.innerHTML = '';
