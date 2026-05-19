@@ -7,8 +7,8 @@ import io
 
 app = FastAPI(
     title="화성시 보조금 신청서 OCR API",
-    description="손글씨 보조금 신청서를 자동 판독하는 API (5종 모델 + 이미지 자동 축소)",
-    version="0.5.0"
+    description="손글씨 보조금 신청서를 자동 판독하는 API (4종 모델 + 이미지 자동 축소)",
+    version="0.6.0"
 )
 
 app.add_middleware(
@@ -19,8 +19,7 @@ app.add_middleware(
 )
 
 # ── 이미지 전처리 설정 ──────────────────────────────────────
-# OCR 모델이 잘 처리할 수 있는 최대 크기 (가로/세로 중 긴 쪽 기준)
-MAX_IMAGE_DIMENSION = 1600  # 핸드폰 사진은 보통 3000~4000이라 이걸로 줄임
+MAX_IMAGE_DIMENSION = 1600
 
 
 def preprocess_image(image: Image.Image, max_dim: int = MAX_IMAGE_DIMENSION) -> Image.Image:
@@ -28,29 +27,21 @@ def preprocess_image(image: Image.Image, max_dim: int = MAX_IMAGE_DIMENSION) -> 
     이미지를 OCR 모델에 적합한 크기로 자동 축소 (비율 유지)
     - 큰 이미지: 자동 축소
     - 작은 이미지: 그대로 유지
-    - 메모리 사용량 감소 + OCR 정확도 향상
     """
     width, height = image.size
-    
-    # 이미 충분히 작으면 그대로 반환
     if max(width, height) <= max_dim:
         return image
-    
-    # 비율 유지하면서 축소
     if width > height:
         new_width = max_dim
         new_height = int(height * (max_dim / width))
     else:
         new_height = max_dim
         new_width = int(width * (max_dim / height))
-    
-    resized = image.resize((new_width, new_height), Image.LANCZOS)
-    return resized
+    return image.resize((new_width, new_height), Image.LANCZOS)
 
 
-# ── 모델 지연 로딩 (처음 요청 시 로드) ──────────────────────
+# ── 모델 지연 로딩 ──────────────────────────────────────
 _easyocr_reader = None
-_paddleocr_reader = None
 _qwen_model = None
 _qwen_processor = None
 _trocr_kor_model = None
@@ -65,14 +56,6 @@ def get_easyocr():
         import easyocr
         _easyocr_reader = easyocr.Reader(["ko", "en"], gpu=False)
     return _easyocr_reader
-
-
-def get_paddleocr():
-    global _paddleocr_reader
-    if _paddleocr_reader is None:
-        from paddleocr import PaddleOCR
-        _paddleocr_reader = PaddleOCR(use_angle_cls=True, lang="korean")
-    return _paddleocr_reader
 
 
 def get_qwen():
@@ -127,18 +110,17 @@ def get_donut():
 def root():
     return {
         "message": "화성시 보조금 신청서 OCR API",
-        "version": "0.5.0",
+        "version": "0.6.0",
         "features": {
             "auto_resize": f"큰 이미지는 자동으로 {MAX_IMAGE_DIMENSION}px 이하로 축소"
         },
-        "models": ["easyocr", "paddleocr", "qwen", "trocr_korean", "donut", "ensemble"],
+        "models": ["easyocr", "qwen", "trocr_korean", "donut", "ensemble"],
         "model_descriptions": {
             "easyocr": "범용 OCR (한/영)",
-            "paddleocr": "한국어 인쇄물 강함",
             "qwen": "Qwen2-VL-2B 비전 모델",
             "trocr_korean": "한국어 손글씨 특화",
             "donut": "양식 문서 특화 (Naver Clova)",
-            "ensemble": "EasyOCR + PaddleOCR 앙상블"
+            "ensemble": "EasyOCR 기반 (안전한 기본값)"
         }
     }
 
@@ -150,8 +132,7 @@ async def ocr_image(
 ):
     """
     이미지 업로드 → 자동 축소 → OCR 결과 반환
-    - model: easyocr / paddleocr / qwen / trocr_korean / donut / ensemble
-    - 큰 이미지는 자동으로 1600px 이하로 축소되어 처리됨
+    - model: easyocr / qwen / trocr_korean / donut / ensemble
     """
     allowed_types = ["image/jpeg", "image/png", "image/bmp", "image/tiff"]
     if file.content_type not in allowed_types:
@@ -166,24 +147,22 @@ async def ocr_image(
         original_image = Image.open(io.BytesIO(contents)).convert("RGB")
         original_size = original_image.size
         
-        # 2) 자동 축소 (큰 이미지만)
+        # 2) 자동 축소
         image = preprocess_image(original_image)
         resized_size = image.size
         was_resized = original_size != resized_size
         
-        # 3) numpy 배열로도 변환 (EasyOCR/PaddleOCR용)
+        # 3) numpy 배열로도 변환 (EasyOCR용)
         image_np = np.array(image)
 
-        if model == "paddleocr":
-            results = run_paddleocr(image_np)
-        elif model == "qwen":
+        if model == "qwen":
             results = run_qwen(image)
         elif model == "trocr_korean":
             results = run_trocr_korean(image)
         elif model == "donut":
             results = run_donut(image)
         elif model == "ensemble":
-            results = run_ensemble(image_np)
+            results = run_easyocr(image_np)  # 단순 EasyOCR 결과 (PaddleOCR 제거)
         else:
             results = run_easyocr(image_np)
 
@@ -220,29 +199,8 @@ def run_easyocr(image_np):
     ]
 
 
-def run_paddleocr(image_np):
-    try:
-        paddle = get_paddleocr()
-        raw = paddle.ocr(image_np, cls=True)
-        results = []
-        if raw and raw[0]:
-            for line in raw[0]:
-                bbox, (text, conf) = line
-                results.append({
-                    "text": text,
-                    "confidence": round(conf, 3),
-                    "bbox": [[int(p[0]), int(p[1])] for p in bbox]
-                })
-        return results
-    except ImportError:
-        raise HTTPException(
-            status_code=400,
-            detail="PaddleOCR가 설치되지 않았습니다. pip install paddleocr paddlepaddle"
-        )
-
-
 def run_qwen(image):
-    """Qwen2-VL을 이용한 OCR (이미지 축소된 상태로 처리)"""
+    """Qwen2-VL을 이용한 OCR"""
     try:
         processor, model = get_qwen()
         messages = [
@@ -339,24 +297,3 @@ def run_donut(image):
         return [{"text": line, "confidence": 1.0, "bbox": []} for line in lines if line]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Donut 처리 오류: {str(e)}")
-
-
-def run_ensemble(image_np):
-    """EasyOCR + PaddleOCR 앙상블"""
-    easy_results = run_easyocr(image_np)
-    try:
-        paddle_results = run_paddleocr(image_np)
-    except Exception:
-        return easy_results
-
-    combined = easy_results + paddle_results
-    combined.sort(key=lambda x: x["confidence"], reverse=True)
-
-    seen = set()
-    final = []
-    for item in combined:
-        if item["text"] not in seen:
-            seen.add(item["text"])
-            final.append(item)
-
-    return final
