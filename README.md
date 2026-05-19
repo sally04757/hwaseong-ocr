@@ -14,7 +14,7 @@
 | **목적** | 손글씨 보조금 신청서의 자동 디지털화 |
 | **대상 사용자** | 화성시청 복지·농업·주민지원 담당 공무원 |
 | **개발 환경** | Local CPU / JupyterHub (RTX 4090 GPU) |
-| **현재 버전** | v0.2.0 |
+| **현재 버전** | v0.4.0 |
 
 ---
 
@@ -25,18 +25,21 @@
 - 지원 이미지 형식: JPG, PNG, BMP, TIFF
 - 파일 크기 제한: 10MB 이하
 
-### 2. OCR 모델 선택
+### 2. OCR 모델 5종 선택 가능
 사용자가 상황에 맞게 OCR 모델을 선택할 수 있습니다.
 
-| 모델 | 특징 |
-|------|------|
-| **EasyOCR** (기본) | 가볍고 빠른 OCR 엔진, 한국어 지원 |
-| **PaddleOCR** | 정확도 높은 OCR 엔진 (별도 설치 필요) |
-| **Ensemble** | EasyOCR + PaddleOCR 결합, 신뢰도 기반 결과 선택 |
+| 모델 | 특화 영역 | 비고 |
+|------|----------|------|
+| **EasyOCR** | 범용 한/영 OCR | 빠른 기본 모델 |
+| **PaddleOCR** | 한국어 인쇄물 | 별도 설치 필요 |
+| **Qwen2-VL-2B** | 범용 비전 모델 | 다국어 (4GB) |
+| **TrOCR-Korean** ⭐ | 한국어 손글씨 특화 | 손글씨 신청서 핵심 모델 (200MB) |
+| **Donut** ⭐ | 양식 문서 특화 | Naver Clova 개발 (800MB) |
+| **Ensemble** | EasyOCR + PaddleOCR | 신뢰도 기반 결과 결합 |
 
 ### 3. 서버 환경 선택
 - **Local 서버**: 본인 컴퓨터(CPU)에서 실행
-- **JupyterHub 서버**: 학교 GPU 서버(RTX 4090)에서 실행 (cloudflared 터널링 적용 예정)
+- **JupyterHub 서버**: 학교 GPU 서버(RTX 4090)에서 실행 (localhost.run 터널링)
 
 ### 4. 테스트 데이터 미리 로딩
 - 난이도별 테스트 신청서 5장을 클릭 한 번으로 로드
@@ -52,14 +55,25 @@
 - **FastAPI** 0.110.0 — 비동기 웹 프레임워크
 - **Uvicorn** 0.29.0 — ASGI 서버
 - **EasyOCR** 1.7.1 — OCR 엔진 (한국어/영어)
-- **Pillow** 10.3.0 — 이미지 처리
-- **NumPy** 1.26.4 — 배열 연산
+- **transformers** 4.45+ — 허깅페이스 모델 로딩
+- **PyTorch** 2.3 — 딥러닝 프레임워크
+- **accelerate** — GPU 가속
+
+### OCR Models
+- **EasyOCR**, **PaddleOCR** — 전통적 OCR
+- **Qwen2-VL-2B-Instruct** — 알리바바 비전 모델
+- **TrOCR (team-lucid/trocr-small-korean)** — 한국어 손글씨 특화
+- **Donut (naver-clova-ix/donut-base)** — Naver Clova 양식 특화
 
 ### Frontend
-- **HTML / CSS / JavaScript** — 사용자 인터페이스
+- **HTML / CSS / JavaScript**
+
+### Infrastructure
+- **JupyterHub** (RTX 4090 GPU 24GB)
+- **localhost.run** — SSH 포트 포워딩 기반 외부 접속
 
 ### 협업 도구
-- **Git / GitHub** — 버전 관리
+- **Git / GitHub**
 
 ---
 
@@ -68,7 +82,7 @@
 ```
 hwaseong-ocr/
 ├── backend/                  # FastAPI 백엔드 서버
-│   ├── main.py              # API 엔드포인트 및 OCR 로직
+│   ├── main.py              # API 엔드포인트 + 5종 OCR 모델 로직
 │   └── requirements.txt     # Python 패키지 목록
 │
 ├── frontend/                 # 웹페이지 (사용자 인터페이스)
@@ -94,6 +108,7 @@ hwaseong-ocr/
 ### 사전 준비
 - Python 3.8 이상
 - pip (Python 패키지 관리자)
+- (선택) NVIDIA GPU + CUDA 12.x
 
 ### 1단계: 저장소 클론
 
@@ -117,7 +132,7 @@ pip install -r requirements.txt
 ### 3단계: 백엔드 서버 실행
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 서버가 정상 실행되면 다음 메시지가 표시됩니다:
@@ -128,7 +143,32 @@ INFO:     Application startup complete.
 
 ### 4단계: 프론트엔드 열기
 
-`frontend/index.html` 파일을 브라우저로 엽니다. 더블클릭하거나 브라우저에 드래그하면 됩니다.
+`frontend/index.html` 파일을 브라우저로 엽니다.
+
+---
+
+## 🌐 외부 접속 (JupyterHub 환경)
+
+학교 JupyterHub의 GPU 서버를 외부에서 접근 가능하게 하려면 `localhost.run`을 사용합니다.
+
+### 외부 접속 설정
+
+**터미널 1 — FastAPI 서버 켜기**
+```bash
+cd ~/hwaseong-ocr/backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+**터미널 2 — 외부 터널 켜기**
+```bash
+ssh -R 80:localhost:8000 nokey@localhost.run
+```
+
+실행 결과로 `https://xxxxx.lhr.life` 형태의 외부 URL이 발급됩니다.
+
+### 제약사항
+- 6시간 후 자동 종료 (재실행 필요)
+- 외부 URL이 매번 변경됨
 
 ---
 
@@ -142,15 +182,21 @@ INFO:     Application startup complete.
 
 ### 2. OCR 모델 선택
 
-업로드 전 사용할 모델을 선택할 수 있습니다.
-- **EasyOCR**: 빠른 결과가 필요할 때 (기본값)
-- **PaddleOCR**: 정확도가 중요할 때
-- **Ensemble**: 두 모델을 모두 사용하여 가장 신뢰할 수 있는 결과 얻기
+용도에 맞는 모델 선택:
+
+| 상황 | 추천 모델 |
+|------|----------|
+| 빠른 결과가 필요할 때 | **EasyOCR** |
+| 인쇄된 한국어 문서 | **PaddleOCR** |
+| 손글씨 신청서 ⭐ | **TrOCR-Korean** |
+| 양식 문서 (보조금 신청서) | **Donut** |
+| 정확도가 가장 중요 | **Qwen2-VL** |
+| 신뢰도 높은 결과 (전통 OCR) | **Ensemble** |
 
 ### 3. 서버 환경 선택
 
 - **Local**: 본인 컴퓨터의 CPU 사용 (기본값, 속도 느림)
-- **JupyterHub GPU**: 학교 GPU 서버 사용 (속도 빠름, 설정 필요)
+- **JupyterHub GPU**: 학교 GPU 서버 사용 (속도 빠름)
 
 ### 4. 결과 확인
 
@@ -186,7 +232,7 @@ OCR 처리가 완료되면 화면에 다음 정보가 표시됩니다.
 ## 🔌 API 명세
 
 ### 기본 정보
-- **Base URL**: `http://localhost:8000`
+- **Base URL**: `http://localhost:8000` 또는 `https://xxxxx.lhr.life`
 - **API 문서 (자동 생성)**: `http://localhost:8000/docs`
 
 ### 엔드포인트
@@ -198,8 +244,16 @@ API 상태 및 지원 모델 정보 반환
 ```json
 {
   "message": "화성시 보조금 신청서 OCR API",
-  "version": "0.2.0",
-  "models": ["easyocr", "paddleocr", "ensemble"]
+  "version": "0.4.0",
+  "models": ["easyocr", "paddleocr", "qwen", "trocr_korean", "donut", "ensemble"],
+  "model_descriptions": {
+    "easyocr": "범용 OCR (한/영)",
+    "paddleocr": "한국어 인쇄물 강함",
+    "qwen": "Qwen2-VL-2B 비전 모델",
+    "trocr_korean": "한국어 손글씨 특화",
+    "donut": "양식 문서 특화 (Naver Clova)",
+    "ensemble": "EasyOCR + PaddleOCR 앙상블"
+  }
 }
 ```
 
@@ -208,14 +262,14 @@ API 상태 및 지원 모델 정보 반환
 
 **요청 파라미터:**
 - `file` (필수): 업로드할 이미지 파일
-- `model` (선택): `easyocr` (기본) / `paddleocr` / `ensemble`
+- `model` (선택): `easyocr` / `paddleocr` / `qwen` / `trocr_korean` / `donut` / `ensemble`
 
 **응답 예시:**
 ```json
 {
   "success": true,
   "filename": "sample_01.jpg",
-  "model_used": "easyocr",
+  "model_used": "trocr_korean",
   "full_text": "추출된 전체 텍스트...",
   "details": [
     {
@@ -235,19 +289,22 @@ API 상태 및 지원 모델 정보 반환
 ### ✅ 완료
 - [x] 프로젝트 초기 구성 (FastAPI + HTML)
 - [x] 이미지 업로드 및 OCR 처리 기능
-- [x] 모델 선택 인터페이스 (EasyOCR / PaddleOCR / Ensemble)
+- [x] 모델 선택 인터페이스 (5종 OCR + 앙상블)
 - [x] 서버 선택 UI (Local / JupyterHub)
 - [x] 테스트 데이터 5장 + 정답 JSON 구축
+- [x] JupyterHub GPU 환경 구축 (RTX 4090)
+- [x] localhost.run 외부 터널링 적용
+- [x] 손글씨 특화 모델 추가 (Qwen, TrOCR-Korean, Donut)
 
 ### 🟡 진행 중
-- [ ] JupyterHub GPU 서버 적용 (cloudflared 터널링)
 - [ ] 테스트 데이터 30장으로 확대
-- [ ] 모델 평가 인터페이스 구축
+- [ ] 모델 평가 인터페이스 구축 (자동 정확도 측정)
+- [ ] 최종 목표 및 세부 기능 설정
 
 ### ⬜ 예정
-- [ ] 허깅페이스 OCR 모델 추가 적용
 - [ ] 정확도 자동 측정 기능 강화
-- [ ] 최종 사용자 인터페이스 개선
+- [ ] 최종 사용자 인터페이스 개선 (공무원 시연용)
+- [ ] 모델 비교 대시보드 (모델별 정확도 시각화)
 
 ---
 
